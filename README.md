@@ -115,6 +115,16 @@ Below is a screenshot of the GDB that executes over it.
 
 ![GDB example](./gdb.png)
 
+The unsolved challenge would trigger a memory error because it tries to write to memory location
+at 0x1. This is not pemissible for two reasons: (1) not aligned and (2) out of the guest memory.
+
+```
+Error message: execution encounters an exception at 0x00200f00. AlignmentFault(1)
+Target terminated with signal EXC_BAD_ACCESS - Could not access memory!
+```
+
+Contestants for that catch-the-flag competition would need to avoid this exception.
+
 ## Credits and License
 
 Most of the code for the virtual machine comes from RISC Zero (https://www.github.com/risc0/risc0). 
