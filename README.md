@@ -36,75 +36,75 @@ For a general cheatsheet, check out https://darkdust.net/files/GDB%20Cheat%20She
 Below we share some common steps in debugging a RISC Zero guest program.
 
 By default, the debugger opens a port at 9000 and waits for GDB to connect. One can tell GDB to connect to this port.
-```
+```gdb
 (gdb) tar rem 127.0.0.1:9000 (short for "target remote 127.0.0.1:9000")
 ```
 
 One can first tell GDB to demangle the symbols.
-```
+```gdb
 (gdb) set p as on (short for "set print asm-demangle on")
 ```
 
 To find functions to manipulate, one can query a list of functions in the ELF files.
-```
+```gdb
 (gdb) i fu (short for "info functions")
 ```
 
 To get a user-friendly interface, one can turn on the Text User Interface (TUI). 
-```
+```gdb
 (gdb) la a (short for "layout asm")
 ```
 
 One can read all the registers.
-```
+```gdb
 (gdb) i r (short for "info registers")
 ```
 
 Or, look at a specific register, such as `ra` for return address.
-```
+```gdb
 (gdb) i r ra  (short for "info registers ra")
 ```
 
 One can set a breakpoint at a specific instruction or a function (with name from "info functions").
-```
+```gdb
 (gdb) b *0x00200d7c (short for "break *0x00200d7c", important to have "*")
 (gdb) b method::a (short for "break method::a", in which the function head would be skipped)
 ```
 
 A watchpoint allows the GDB to be alarmed when certain memory area is being read or written. 
-```
+```gdb
 (gdb) wa $sp+156 (short for "watch $sp+156", and here $sp is the stack pointer)
 ```
 
 To view the function frames, one can ask GDB to show it.
-```
+```gdb
 (gdb) i f (short for "info frame")
 ```
 
 One can let GDB manipulate the memory or registers (even if it is PC) of the running program.
-```
+```gdb
 (gdb) set $pc=0x00200f00
 ```
 
 To view certain area of the memory, one can query it from GDB.
-```
+```gdb
 (gdb) x/4x $sp+156 
 ```
 
 If you need to convert between hex and dec during debugging, GDB also has it. 
-```
+```gdb
 (gdb) p/x 2102980 (short for "print/x 2102980")
 (gdb) p 0x002016c4 (short for "print 0x002016c4")
 ```
 
 One who is familiar with PHP should realize that "$" sign starts a variable.
-```
+```gdb
 (gdb) set $ra_tmp_store=0x2003dc
 (gdb) p $ra_tmp_store
 ```
 
 Lastly, don't forget how to close GDB.
-```
+```gdb
 (gdb) q (short for "quit")
 ```
 
