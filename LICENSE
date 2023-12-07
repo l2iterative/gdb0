@@ -1,0 +1,19 @@
+The authors intend this repo to be dual-licensed under MIT or Apache2, at your option.
+
+The repo, however, uses an excessive amount of code from other projects: gdbstub and risc0.
+Based on our observation, this repo is currently under Apache2 license.
+
+----------------------------------------------------
+
+gdbstub (https://github.com/daniel5151/gdbstub) is dual-licensed under either
+
+* MIT License (docs/LICENSE-MIT or http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0 (docs/LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option.
+
+----------------------------------------------------
+
+risc0 (https://github.com/risc0/risc0), however, is licensed under the Apache2 license. 
+
+----------------------------------------------------

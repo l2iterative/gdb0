@@ -1,0 +1,18 @@
+[package]
+name = "r0db"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rrs-lib = "0.1.0"
+elf = "0.7.4"
+anyhow = "1.0.75"
+bytemuck = "1.14.0"
+sha2 = { version = "0.10.8", features = ["compress"] }
+crypto-bigint = { version = "0.5", default-features = false, features = ["rand"] }
+getrandom = "0.2.11"
+serde = "1.0.193"
+gdbstub = "0.7.0"
+gdbstub_arch = "0.3.0"
