@@ -1,7 +1,7 @@
 # Dynamic code analysis for RISC Zero guest programs
 
 This repository implements two things:
-- a virtual machine for RISC Zero guest programs that run RISC-V instructions and mimic RISC Zero's syscalls
+- a virtual machine for RISC Zero guest programs that runs RISC-V instructions and mimics RISC Zero's syscalls
 - a debugger that implements an interface to GDB
 
 The debugger supports a large number of features that GDB needs. It allows GDB to read the ELF file, which is 
