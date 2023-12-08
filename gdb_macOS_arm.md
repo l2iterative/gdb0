@@ -15,35 +15,28 @@ Below we provide a way to get GDB running through QEMU.
 ### Setting up a virtual machine for GDB via QEMU
 
 We can start by creating an image.
-```bash
-(host) qemu-img create -f qcow2 gdb.img 10G
+```console
+host@host:~$ qemu-img create -f qcow2 gdb.img 10G
 ```
 
 Then, download the Ubuntu Server ISO (https://ubuntu.com/download/server) and start a QEMU simulation for x86-64 with that ISO.
 We recommend a recent one because we do need a recent version of `gdb-multiarch`, which would support riscv32.
-```bash
-(host) qemu-system-x86_64 -m 4096 \
-     -drive file=gdb.img \
-     -net user,hostfwd=tcp::10022-:22 \
-     -net nic \
-     -cdrom ./ubuntu-22.04.3-live-server-amd64.iso 
+```console
+host@host:~$ qemu-system-x86_64 -m 4096 -drive file=gdb.img -net user,hostfwd=tcp::10022-:22 -net nic -cdrom ./ubuntu-22.04.3-live-server-amd64.iso 
 ```
 
 A window should pop up for the virtual machine. Follow the steps to install Ubuntu and remember to enable openssh server, 
 as it can be useful to access the target through SSH (here, using port 10022).
 
 After finishing the installation, quit the virtual machine and open the virtual machine again without the image.
-```bash
-(host) qemu-system-x86_64 -m 4096 \
-     -drive file=gdb.img \
-     -net user,hostfwd=tcp::10022-:22 \
-     -net nic 
+```console
+host@host:~$ qemu-system-x86_64 -m 4096 -drive file=gdb.img -net user,hostfwd=tcp::10022-:22 -net nic 
 ```
 
 Then, we install `gdb-multiarch`. 
-```bash
-(target) sudo apt update
-(target) sudo apt install gdb-multiarch
+```console
+ubuntu@target:~$ sudo apt update
+ubuntu@target:~$ sudo apt install gdb-multiarch
 ```
 
 We can then enter GDB as usual (using `gdb-multiarch`, not `gdb`). 
