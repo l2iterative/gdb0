@@ -46,7 +46,8 @@ Then, we install `gdb-multiarch`.
 (target) sudo apt install gdb-multiarch
 ```
 
-We can then enter GDB as usual. To connect to the host, instead of using 127.0.0.1, use 10.0.2.2. If the address is different on 
+We can then enter GDB as usual (using `gdb-multiarch`, not `gdb`). 
+To connect to the host, instead of using 127.0.0.1, use 10.0.2.2. If the address is different on 
 your machine, you can install `net-tools` and look it up through `sudo ifconfig`.
 
 ```gdb
