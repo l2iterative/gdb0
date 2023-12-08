@@ -11,16 +11,11 @@ GDB to go back in time but add some complexity due to the need to reverting an i
 
 ## Find a GDB implementation that works for RISC-V
 
-If you are using MacOS with M1/M2 chips, 
-> There appears to be no way to run GDB at this moment. In addition, LLDB does not work, because at this moment,
-LLDB does not recognize 32-bit RISC-V architecture and would be unable to understand the frames and would 
-uncontrollably keep single-stepping the program. It appears that generations of developers have tried to fill
-in this gap, but LLDB is just very different from GDB and is not a substitute. For these users, we recommend
-using a separate machine, such as a cloud instance, or a virtual machine to run GDB. People who opt in for M1/M2
-chips, including me myself, should have expected such situations to emerge one day.
+If you are using macOS with ARM chips, please refer to [gdb_macOS_arm.md](gdb_macOS_arm.md).
 
-If you are not using M1/M2 chips, chances are that GDB would work, but just requiring a good version of GDB that 
-supports 32-bit RISC-V. An out-of-the-box GDB likely does not support 32-bit RISC-V, but just the very common ones.
+Otherwise, chances are that GDB would work, but just requiring a good version of GDB that 
+supports 32-bit RISC-V. An out-of-the-box GDB likely does not support 32-bit RISC-V, but just a few other 
+very common architectures. 
 
 There are two ways to obtain a collaborative GDB.
 
