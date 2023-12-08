@@ -66,7 +66,12 @@ pub fn debugger_takeover(elf: Vec<u8>, simulator: Rc<RefCell<Simulator>>) -> Res
                 loop {
                     let res = emu.simulator.borrow_mut().step();
                     if res.is_err() {
-                        println!("Simulator failed.");
+                        match res {
+                            Ok(_) => {}
+                            Err(e) => {
+                                println!("Error message: {}", e);
+                            }
+                        }
                         break;
                     }
 
