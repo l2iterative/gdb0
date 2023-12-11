@@ -13,7 +13,6 @@ use gdbstub::target::ext::monitor_cmd::MonitorCmdOps;
 use gdbstub::target::Target;
 use std::cell::RefCell;
 use std::collections::HashSet;
-use gdbstub::target::ext::monitor_cmd::{ConsoleOutput, MonitorCmd, MonitorCmdOps};
 
 #[derive(Eq, PartialEq)]
 pub enum ExecMode {
