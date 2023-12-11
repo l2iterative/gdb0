@@ -48,10 +48,13 @@ impl Memory {
             }
         }
     }
-}
 
-impl rrs_lib::Memory for Memory {
-    fn read_mem(&mut self, addr: u32, size: MemAccessSize) -> Option<u32> {
+    pub(crate) fn read_mem_with_privileges(
+        &mut self,
+        addr: u32,
+        size: MemAccessSize,
+        privileged: bool,
+    ) -> Option<u32> {
         if (addr as usize) < GUEST_MIN_MEM || (addr as usize) > GUEST_MAX_MEM {
             return None;
         }
@@ -61,7 +64,7 @@ impl rrs_lib::Memory for Memory {
             self.map.insert(page_idx, [0u32; 256]);
         }
 
-        if self.session_cycle_callback.is_some() {
+        if !privileged && self.session_cycle_callback.is_some() {
             self.session_cycle_callback
                 .as_ref()
                 .unwrap()
@@ -73,7 +76,9 @@ impl rrs_lib::Memory for Memory {
 
         return match size {
             MemAccessSize::Byte => {
-                self.check_watchpoints(addr, 1, false);
+                if !privileged {
+                    self.check_watchpoints(addr, 1, false);
+                }
                 let word = self.map.get(&page_idx).unwrap()[page_offset / 4];
 
                 if page_offset % 4 == 0 {
@@ -87,7 +92,9 @@ impl rrs_lib::Memory for Memory {
                 }
             }
             MemAccessSize::HalfWord => {
-                self.check_watchpoints(addr, 2, false);
+                if !privileged {
+                    self.check_watchpoints(addr, 2, false);
+                }
                 let word = self.map.get(&page_idx).unwrap()[page_offset / 4];
 
                 if page_offset % 4 == 2 {
@@ -97,13 +104,21 @@ impl rrs_lib::Memory for Memory {
                 }
             }
             MemAccessSize::Word => {
-                self.check_watchpoints(addr, 4, false);
+                if !privileged {
+                    self.check_watchpoints(addr, 4, false);
+                }
                 Some(self.map.get(&page_idx).unwrap()[page_offset / 4])
             }
         };
     }
 
-    fn write_mem(&mut self, addr: u32, size: MemAccessSize, store_data: u32) -> bool {
+    pub(crate) fn write_mem_with_privileges(
+        &mut self,
+        addr: u32,
+        size: MemAccessSize,
+        store_data: u32,
+        privileged: bool,
+    ) -> bool {
         if (addr as usize) < GUEST_MIN_MEM || (addr as usize) > GUEST_MAX_MEM {
             return false;
         }
@@ -113,7 +128,7 @@ impl rrs_lib::Memory for Memory {
             self.map.insert(page_idx, [0u32; 256]);
         }
 
-        if self.session_cycle_callback.is_some() {
+        if !privileged && self.session_cycle_callback.is_some() {
             self.session_cycle_callback
                 .as_ref()
                 .unwrap()
@@ -125,7 +140,9 @@ impl rrs_lib::Memory for Memory {
 
         match size {
             MemAccessSize::Byte => {
-                self.check_watchpoints(addr, 1, true);
+                if !privileged {
+                    self.check_watchpoints(addr, 1, true);
+                }
                 let word = self.map.get(&page_idx).unwrap()[page_offset / 4];
 
                 let new_word = if page_offset % 4 == 0 {
@@ -141,7 +158,9 @@ impl rrs_lib::Memory for Memory {
                 self.map.get_mut(&page_idx).unwrap()[page_offset / 4] = new_word;
             }
             MemAccessSize::HalfWord => {
-                self.check_watchpoints(addr, 2, true);
+                if !privileged {
+                    self.check_watchpoints(addr, 2, true);
+                }
                 let word = self.map.get(&page_idx).unwrap()[page_offset / 4];
 
                 let new_word = if page_offset % 4 == 2 {
@@ -153,11 +172,23 @@ impl rrs_lib::Memory for Memory {
                 self.map.get_mut(&page_idx).unwrap()[page_offset / 4] = new_word;
             }
             MemAccessSize::Word => {
-                self.check_watchpoints(addr, 4, true);
+                if !privileged {
+                    self.check_watchpoints(addr, 4, true);
+                }
                 self.map.get_mut(&page_idx).unwrap()[page_offset / 4] = store_data;
             }
         }
 
         true
+    }
+}
+
+impl rrs_lib::Memory for Memory {
+    fn read_mem(&mut self, addr: u32, size: MemAccessSize) -> Option<u32> {
+        self.read_mem_with_privileges(addr, size, false)
+    }
+
+    fn write_mem(&mut self, addr: u32, size: MemAccessSize, store_data: u32) -> bool {
+        self.write_mem_with_privileges(addr, size, store_data, false)
     }
 }
