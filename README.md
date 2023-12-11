@@ -24,7 +24,7 @@ There are two ways to obtain a collaborative GDB.
 - Compile GDB from the source (https://www.sourceware.org/gdb/) and do `./configure --target=riscv32` to obtain a
   dedicated GDB that only has 32-bit RISC-V
 
-## New functions for GDB
+## New RISC-Zero-specific functions for GDB
 
 Interactions with GDB is similar to using GDB to debug another RISC-V program. But, this debugger implements additional 
 API that is specific to RISC Zero, in that it can query the current cycle count as well as verbose information about the 
