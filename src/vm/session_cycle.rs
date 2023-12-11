@@ -93,12 +93,13 @@ impl SessionCycleCount {
                         // The root page is shorter, and it only contains 22 u32, which means 11 blocks.
                         // based on 1 + SHA_INIT + (SHA_LOAD + SHA_MAIN) * blocks_per_page
                         cur_step_page_read_cycle += 1 + 5 + (16 + 52) * 11;
+                        new_segment_resident.push(cur_page_idx);
                         break;
                     } else {
                         // Each other page has 16 blocks, making up 1024 bytes.
                         cur_step_page_read_cycle += 1 + 5 + (16 + 52) * 16;
+                        new_segment_resident.push(cur_page_idx);
                     }
-                    new_segment_resident.push(cur_page_idx);
 
                     cur_page_idx = (0x0D00_0000 + cur_page_idx * 32) >> 10;
                 }
@@ -121,12 +122,13 @@ impl SessionCycleCount {
                         // The root page is shorter, and it only contains 22 u32, which means 11 blocks.
                         // based on 1 + SHA_INIT + (SHA_LOAD + SHA_MAIN) * blocks_per_page
                         cur_step_page_write_cycle += 1 + 5 + (16 + 52) * 11;
+                        new_segment_dirty.push(cur_page_idx);
                         break;
                     } else {
                         // Each other page has 16 blocks, making up 1024 bytes.
                         cur_step_page_write_cycle += 1 + 5 + (16 + 52) * 16;
+                        new_segment_dirty.push(cur_page_idx);
                     }
-                    new_segment_dirty.push(cur_page_idx);
 
                     cur_page_idx = (0x0D00_0000 + cur_page_idx * 32) >> 10;
                 }
