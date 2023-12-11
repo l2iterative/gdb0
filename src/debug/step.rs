@@ -1,11 +1,8 @@
-use crate::debug::debugger::{Debugger, ExecMode};
 use gdbstub::arch::Arch;
 use gdbstub::common::Signal;
 use gdbstub::target::ext::base::reverse_exec::{ReverseContOps, ReverseStepOps};
-use gdbstub::target::ext::base::singlethread::{
-    SingleThreadRangeStepping, SingleThreadRangeSteppingOps, SingleThreadResume,
-    SingleThreadSingleStep, SingleThreadSingleStepOps,
-};
+use gdbstub::target::ext::base::singlethread::{SingleThreadRangeStepping, SingleThreadRangeSteppingOps, SingleThreadResume, SingleThreadSingleStep, SingleThreadSingleStepOps};
+use crate::debug::debugger::{Debugger, ExecMode};
 
 impl SingleThreadResume for Debugger {
     fn resume(&mut self, signal: Option<Signal>) -> Result<(), Self::Error> {

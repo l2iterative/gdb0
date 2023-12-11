@@ -1,13 +1,11 @@
-use crate::debug::debugger::Debugger;
-use crate::vm::memory::{GUEST_MAX_MEM, GUEST_MIN_MEM};
 use gdbstub::arch::Arch;
-use gdbstub::target::ext::base::single_register_access::{
-    SingleRegisterAccess, SingleRegisterAccessOps,
-};
+use gdbstub::target::ext::base::single_register_access::{SingleRegisterAccess, SingleRegisterAccessOps};
 use gdbstub::target::ext::base::singlethread::{SingleThreadBase, SingleThreadResumeOps};
 use gdbstub::target::{TargetError, TargetResult};
 use gdbstub_arch::riscv::reg::id::RiscvRegId;
 use rrs_lib::{MemAccessSize, Memory};
+use crate::debug::debugger::Debugger;
+use crate::vm::memory::{GUEST_MAX_MEM, GUEST_MIN_MEM};
 
 impl SingleThreadBase for Debugger {
     fn read_registers(
@@ -129,4 +127,8 @@ impl SingleRegisterAccess<()> for Debugger {
             _ => Err(TargetError::NonFatal),
         };
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 60320c7 (monitor)
