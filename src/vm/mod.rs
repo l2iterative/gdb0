@@ -2,6 +2,7 @@ use gdbstub::target::ext::breakpoints::WatchKind;
 
 pub mod loader;
 pub mod memory;
+pub mod session_cycle;
 pub mod simulator;
 mod syscall;
 

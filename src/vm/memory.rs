@@ -1,5 +1,8 @@
+use crate::vm::session_cycle::SessionCycleCount;
+use alloc::rc::Rc;
 use gdbstub::target::ext::breakpoints::WatchKind;
 use rrs_lib::MemAccessSize;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 pub const GUEST_MIN_MEM: usize = 0x0000_0400;
@@ -10,9 +13,14 @@ pub struct Memory {
     pub map: BTreeMap<u32, [u32; 256]>,
     pub hw_watchpoints: Vec<(u32, u32, WatchKind)>,
     pub watch_trigger: Option<(WatchKind, u32)>,
+    pub session_cycle_callback: Option<Rc<RefCell<SessionCycleCount>>>,
 }
 
 impl Memory {
+    pub fn with_session_cycle_callback(&mut self, callback: Rc<RefCell<SessionCycleCount>>) {
+        self.session_cycle_callback = Some(callback);
+    }
+
     fn check_watchpoints(&mut self, addr: u32, len: u32, is_write: bool) {
         if self.watch_trigger.is_some() {
             return;
@@ -51,6 +59,14 @@ impl rrs_lib::Memory for Memory {
         let page_idx = addr >> 10;
         if !self.map.contains_key(&page_idx) {
             self.map.insert(page_idx, [0u32; 256]);
+        }
+
+        if self.session_cycle_callback.is_some() {
+            self.session_cycle_callback
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .callback_read_mem(page_idx);
         }
 
         let page_offset = (addr & 0x3ff) as usize;
@@ -95,6 +111,14 @@ impl rrs_lib::Memory for Memory {
         let page_idx = addr >> 10;
         if !self.map.contains_key(&page_idx) {
             self.map.insert(page_idx, [0u32; 256]);
+        }
+
+        if self.session_cycle_callback.is_some() {
+            self.session_cycle_callback
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .callback_write_mem(page_idx);
         }
 
         let page_offset = (addr & 0x3ff) as usize;
