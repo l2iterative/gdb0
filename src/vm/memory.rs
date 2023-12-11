@@ -55,7 +55,7 @@ impl Memory {
         size: MemAccessSize,
         privileged: bool,
     ) -> Option<u32> {
-        if ((addr as usize) < GUEST_MIN_MEM || (addr as usize) > GUEST_MAX_MEM) {
+        if (addr as usize) < GUEST_MIN_MEM || (addr as usize) > GUEST_MAX_MEM {
             return None;
         }
 
@@ -119,7 +119,7 @@ impl Memory {
         store_data: u32,
         privileged: bool,
     ) -> bool {
-        if ((addr as usize) < GUEST_MIN_MEM || (addr as usize) > GUEST_MAX_MEM) {
+        if (addr as usize) < GUEST_MIN_MEM || (addr as usize) > GUEST_MAX_MEM {
             return false;
         }
 
