@@ -24,6 +24,24 @@ There are two ways to obtain a collaborative GDB.
 - Compile GDB from the source (https://www.sourceware.org/gdb/) and do `./configure --target=riscv32` to obtain a
   dedicated GDB that only has 32-bit RISC-V
 
+## New functions for GDB
+
+Interactions with GDB is similar to using GDB to debug another RISC-V program. But, this debugger implements additional 
+API that is specific to RISC Zero, in that it can query the current cycle count as well as verbose information about the 
+cycle information.
+
+The first function retrieves the current session cycle.
+```gdb
+(gdb) mo c (short for "monitor cycle")
+20838
+```
+
+The second function provides a verbose explanation about the segments and cycles.
+```gdb
+(gdb) mo v (short for "monitor verbose")
+0 segments finished, current segment has taken 20838 cycles, 10 pages are loaded, 6 pages need to be stored
+```
+
 ## Simple cheatsheet for GDB
 
 For a general cheatsheet, check out https://darkdust.net/files/GDB%20Cheat%20Sheet.pdf. 
