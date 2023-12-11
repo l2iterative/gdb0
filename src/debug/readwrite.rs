@@ -49,7 +49,7 @@ impl SingleThreadBase for Debugger {
                 .borrow_mut()
                 .mem
                 .borrow_mut()
-                .read_mem(addr, MemAccessSize::Byte)
+                .read_mem_with_privileges(addr, MemAccessSize::Byte, true)
                 .ok_or(TargetError::NonFatal)? as u8;
         }
 
@@ -62,11 +62,12 @@ impl SingleThreadBase for Debugger {
         data: &[u8],
     ) -> TargetResult<(), Self> {
         for (addr, val) in (start_addr..).zip(data.iter().copied()) {
-            let res = self.simulator.borrow_mut().mem.borrow_mut().write_mem(
-                addr,
-                MemAccessSize::Byte,
-                val as u32,
-            );
+            let res = self
+                .simulator
+                .borrow_mut()
+                .mem
+                .borrow_mut()
+                .write_mem_with_privileges(addr, MemAccessSize::Byte, val as u32, true);
             if res == false {
                 return Err(TargetError::NonFatal);
             }
