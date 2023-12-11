@@ -7,7 +7,7 @@ use gdbstub::target::ext::base::single_register_access::{
 use gdbstub::target::ext::base::singlethread::{SingleThreadBase, SingleThreadResumeOps};
 use gdbstub::target::{TargetError, TargetResult};
 use gdbstub_arch::riscv::reg::id::RiscvRegId;
-use rrs_lib::{MemAccessSize, Memory};
+use rrs_lib::MemAccessSize;
 
 impl SingleThreadBase for Debugger {
     fn read_registers(
