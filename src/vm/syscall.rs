@@ -24,7 +24,8 @@ pub fn handle_syscall(
     }
 
     if syscall_name == "risc0_zkvm_platform::syscall::nr::SYS_CYCLE_COUNT" {
-        vm.hart_state.registers[REG_A0] = 0;
+        vm.hart_state.registers[REG_A0] =
+            vm.session_cycle_count.borrow().get_session_cycle() as u32;
         vm.hart_state.registers[REG_A1] = 0;
 
         return Ok(None);
@@ -239,6 +240,5 @@ pub fn handle_syscall(
         return Ok(None);
     }
 
-    println!("{}", syscall_name);
     Ok(None)
 }

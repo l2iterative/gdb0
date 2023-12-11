@@ -1,7 +1,9 @@
-use gdbstub::arch::Arch;
-use gdbstub::target::ext::breakpoints::{Breakpoints, HwWatchpoint, HwWatchpointOps, SwBreakpoint, SwBreakpointOps, WatchKind};
-use gdbstub::target::TargetResult;
 use crate::debug::debugger::Debugger;
+use gdbstub::arch::Arch;
+use gdbstub::target::ext::breakpoints::{
+    Breakpoints, HwWatchpoint, HwWatchpointOps, SwBreakpoint, SwBreakpointOps, WatchKind,
+};
+use gdbstub::target::TargetResult;
 
 impl Breakpoints for Debugger {
     fn support_sw_breakpoint(&mut self) -> Option<SwBreakpointOps<'_, Self>> {

@@ -1,8 +1,13 @@
+use crate::debug::debugger::Debugger;
 use gdbstub::common::Pid;
 use gdbstub::target::ext::exec_file::ExecFile;
-use gdbstub::target::ext::host_io::{FsKind, HostIo, HostIoClose, HostIoCloseOps, HostIoErrno, HostIoError, HostIoFstat, HostIoFstatOps, HostIoOpen, HostIoOpenFlags, HostIoOpenMode, HostIoOpenOps, HostIoPread, HostIoPreadOps, HostIoReadlink, HostIoReadlinkOps, HostIoResult, HostIoSetfs, HostIoSetfsOps, HostIoStat};
+use gdbstub::target::ext::host_io::{
+    FsKind, HostIo, HostIoClose, HostIoCloseOps, HostIoErrno, HostIoError, HostIoFstat,
+    HostIoFstatOps, HostIoOpen, HostIoOpenFlags, HostIoOpenMode, HostIoOpenOps, HostIoPread,
+    HostIoPreadOps, HostIoReadlink, HostIoReadlinkOps, HostIoResult, HostIoSetfs, HostIoSetfsOps,
+    HostIoStat,
+};
 use gdbstub::target::TargetResult;
-use crate::debug::debugger::Debugger;
 
 impl ExecFile for Debugger {
     fn get_exec_file(

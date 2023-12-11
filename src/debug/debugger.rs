@@ -1,38 +1,18 @@
-use crate::vm::memory::{GUEST_MAX_MEM, GUEST_MIN_MEM};
 use crate::vm::simulator::Simulator;
 use crate::vm::ExitCode;
 use alloc::rc::Rc;
-use gdbstub::arch::Arch;
-use gdbstub::common::{Pid, Signal};
+use gdbstub::common::Signal;
 use gdbstub::conn::{Connection, ConnectionExt};
 use gdbstub::stub::run_blocking::{Event, WaitForStopReasonError};
 use gdbstub::stub::{run_blocking, SingleThreadStopReason};
-use gdbstub::target::ext::base::reverse_exec::{ReverseContOps, ReverseStepOps};
-use gdbstub::target::ext::base::single_register_access::{
-    SingleRegisterAccess, SingleRegisterAccessOps,
-};
-use gdbstub::target::ext::base::singlethread::{
-    SingleThreadBase, SingleThreadRangeStepping, SingleThreadRangeSteppingOps, SingleThreadResume,
-    SingleThreadResumeOps, SingleThreadSingleStep, SingleThreadSingleStepOps,
-};
 use gdbstub::target::ext::base::BaseOps;
-use gdbstub::target::ext::breakpoints::{
-    Breakpoints, BreakpointsOps, HwWatchpoint, HwWatchpointOps, SwBreakpoint, SwBreakpointOps,
-    WatchKind,
-};
-use gdbstub::target::ext::exec_file::{ExecFile, ExecFileOps};
-use gdbstub::target::ext::host_io::{
-    FsKind, HostIo, HostIoClose, HostIoCloseOps, HostIoErrno, HostIoError, HostIoFstat,
-    HostIoFstatOps, HostIoOpen, HostIoOpenFlags, HostIoOpenMode, HostIoOpenOps, HostIoOps,
-    HostIoPread, HostIoPreadOps, HostIoReadlink, HostIoReadlinkOps, HostIoResult, HostIoSetfs,
-    HostIoSetfsOps, HostIoStat,
-};
-use gdbstub::target::{Target, TargetError, TargetResult};
-use gdbstub_arch::riscv::reg::id::RiscvRegId;
-use rrs_lib::{MemAccessSize, Memory};
+use gdbstub::target::ext::breakpoints::BreakpointsOps;
+use gdbstub::target::ext::exec_file::ExecFileOps;
+use gdbstub::target::ext::host_io::HostIoOps;
+use gdbstub::target::ext::monitor_cmd::MonitorCmdOps;
+use gdbstub::target::Target;
 use std::cell::RefCell;
 use std::collections::HashSet;
-use gdbstub::target::ext::monitor_cmd::{ConsoleOutput, MonitorCmd, MonitorCmdOps};
 
 #[derive(Eq, PartialEq)]
 pub enum ExecMode {

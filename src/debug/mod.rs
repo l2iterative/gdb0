@@ -11,12 +11,12 @@ use crate::debug::debugger::{Debugger, ExecMode};
 use crate::vm::ExitCode;
 use anyhow::Result;
 
+pub mod breakpoints;
 pub mod debugger;
 pub mod host_io;
-pub mod breakpoints;
+pub mod monitor;
 pub mod readwrite;
 pub mod step;
-pub mod monitor;
 
 /// Copy all bytes of `data` to `buf`.
 /// Return the size of data copied.

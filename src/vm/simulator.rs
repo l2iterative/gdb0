@@ -1,5 +1,6 @@
 use crate::vm;
 use crate::vm::memory::{GUEST_MAX_MEM, GUEST_MIN_MEM};
+use crate::vm::session_cycle::{get_opcode_cycle, SessionCycleCount};
 use crate::vm::ExitCode;
 use anyhow::{anyhow, bail, Result};
 use crypto_bigint::{CheckedMul, Encoding, NonZero, U256, U512};
@@ -13,7 +14,7 @@ use std::ops::DerefMut;
 use std::rc::Rc;
 
 pub struct Simulator {
-    pub mem: Rc<RefCell<crate::vm::memory::Memory>>,
+    pub mem: Rc<RefCell<vm::memory::Memory>>,
     pub hart_state: HartState,
     pub env: HashMap<String, String>,
     pub stdin: Cursor<Vec<u8>>,
@@ -21,16 +22,21 @@ pub struct Simulator {
     pub stderr: Cursor<Vec<u8>>,
     pub journal: Cursor<Vec<u8>>,
     pub args: Vec<String>,
+    pub session_cycle_count: Rc<RefCell<SessionCycleCount>>,
 }
 
 impl Simulator {
     pub fn new(
-        mem: Rc<RefCell<crate::vm::memory::Memory>>,
+        mem: Rc<RefCell<vm::memory::Memory>>,
         entry: u32,
         env: &HashMap<String, String>,
     ) -> Self {
         let mut hart_state = HartState::new();
         hart_state.pc = entry;
+
+        let session_cycle_count = Rc::new(RefCell::new(SessionCycleCount::default()));
+        mem.borrow_mut()
+            .with_session_cycle_callback(session_cycle_count.clone());
 
         Self {
             mem,
@@ -41,6 +47,7 @@ impl Simulator {
             stderr: Cursor::default(),
             journal: Cursor::default(),
             args: Vec::new(),
+            session_cycle_count,
         }
     }
 
@@ -104,9 +111,16 @@ impl Simulator {
 
         self.mem.borrow_mut().watch_trigger = None;
 
+        let opcode_cycle = get_opcode_cycle(insn)?;
+
         if opcode == 0b1110011 && funct3 == 0 && (rs2 == 0 || rs2 == 1) && funct7 == 0 {
             let res = self.ecall()?;
             self.hart_state.pc = res.0;
+            let extra_cycle = res.2;
+
+            self.session_cycle_count
+                .borrow_mut()
+                .callback_step(opcode_cycle, extra_cycle);
 
             if res.1.is_none() && self.mem.borrow_mut().watch_trigger.is_some() {
                 let watch_result = self.mem.borrow_mut().watch_trigger.unwrap();
@@ -130,6 +144,10 @@ impl Simulator {
                 )
             })?;
 
+            self.session_cycle_count
+                .borrow_mut()
+                .callback_step(opcode_cycle, 0);
+
             if mem.watch_trigger.is_some() {
                 let watch_result = mem.watch_trigger.unwrap();
                 return Ok(Some(ExitCode::HwWatchPoint((
@@ -142,7 +160,7 @@ impl Simulator {
         Ok(None)
     }
 
-    pub fn ecall(&mut self) -> Result<(u32, Option<ExitCode>)> {
+    pub fn ecall(&mut self) -> Result<(u32, Option<ExitCode>, usize)> {
         match self.hart_state.registers[crate::vm::reg_abi::REG_T0] {
             vm::ecall::HALT => self.ecall_halt(),
             vm::ecall::INPUT => self.ecall_input(),
@@ -153,25 +171,27 @@ impl Simulator {
         }
     }
 
-    pub fn ecall_halt(&mut self) -> Result<(u32, Option<ExitCode>)> {
+    pub fn ecall_halt(&mut self) -> Result<(u32, Option<ExitCode>, usize)> {
         let tot_reg = self.hart_state.registers[crate::vm::reg_abi::REG_A0];
         let halt_type = tot_reg & 0xff;
         let user_exit = (tot_reg >> 8) & 0xff;
 
         match halt_type {
             crate::vm::halt::TERMINATE => {
-                Ok((self.hart_state.pc, Some(ExitCode::Halted(user_exit))))
+                Ok((self.hart_state.pc, Some(ExitCode::Halted(user_exit)), 0))
             }
-            crate::vm::halt::PAUSE => Ok((self.hart_state.pc, Some(ExitCode::Paused(user_exit)))),
+            crate::vm::halt::PAUSE => {
+                Ok((self.hart_state.pc, Some(ExitCode::Paused(user_exit)), 0))
+            }
             _ => bail!("Illegal halt type: {halt_type}"),
         }
     }
 
-    pub fn ecall_input(&mut self) -> Result<(u32, Option<ExitCode>)> {
-        Ok((self.hart_state.pc + 4, None))
+    pub fn ecall_input(&mut self) -> Result<(u32, Option<ExitCode>, usize)> {
+        Ok((self.hart_state.pc + 4, None, 0))
     }
 
-    pub fn ecall_software(&mut self) -> Result<(u32, Option<ExitCode>)> {
+    pub fn ecall_software(&mut self) -> Result<(u32, Option<ExitCode>, usize)> {
         let to_guest_ptr = self.hart_state.registers[crate::vm::reg_abi::REG_A0];
 
         if ((to_guest_ptr as usize) < GUEST_MIN_MEM || (to_guest_ptr as usize) > GUEST_MAX_MEM)
@@ -186,6 +206,15 @@ impl Simulator {
 
         let to_guest_words = self.hart_state.registers[crate::vm::reg_abi::REG_A1];
         let name_ptr = self.hart_state.registers[crate::vm::reg_abi::REG_A2];
+
+        /// Align the given address `addr` upwards to alignment `align`.
+        ///
+        /// Requires that `align` is a power of two.
+        const fn align_up(addr: usize, align: usize) -> usize {
+            (addr + align - 1) & !(align - 1)
+        }
+
+        let chunks = align_up(to_guest_words as usize, 4);
 
         let syscall_name = {
             let mut addr = name_ptr;
@@ -208,9 +237,9 @@ impl Simulator {
         };
 
         let mut to_guest = vec![0; to_guest_words as usize];
-        let exit_code = crate::vm::syscall::handle_syscall(&syscall_name, &mut to_guest, self)?;
+        let exit_code = vm::syscall::handle_syscall(&syscall_name, &mut to_guest, self)?;
         if exit_code.is_some() {
-            return Ok((self.hart_state.pc, None));
+            return Ok((self.hart_state.pc, None, 1 + chunks + 1));
         }
 
         if to_guest_ptr != 0 {
@@ -228,10 +257,10 @@ impl Simulator {
             }
         }
 
-        Ok((self.hart_state.pc + 4, None))
+        Ok((self.hart_state.pc + 4, None, 1 + chunks + 1))
     }
 
-    pub fn ecall_sha(&mut self) -> Result<(u32, Option<ExitCode>)> {
+    pub fn ecall_sha(&mut self) -> Result<(u32, Option<ExitCode>, usize)> {
         let out_state_ptr = self.hart_state.registers[crate::vm::reg_abi::REG_A0];
         let in_state_ptr = self.hart_state.registers[crate::vm::reg_abi::REG_A1];
         let mut block1_ptr = self.hart_state.registers[crate::vm::reg_abi::REG_A2];
@@ -294,10 +323,10 @@ impl Simulator {
             }
         }
 
-        Ok((self.hart_state.pc + 4, None))
+        Ok((self.hart_state.pc + 4, None, (73 * count) as usize))
     }
 
-    pub fn ecall_bigint(&mut self) -> Result<(u32, Option<ExitCode>)> {
+    pub fn ecall_bigint(&mut self) -> Result<(u32, Option<ExitCode>, usize)> {
         let z_ptr = self.hart_state.registers[crate::vm::reg_abi::REG_A0];
         let op = self.hart_state.registers[crate::vm::reg_abi::REG_A1];
         let x_ptr = self.hart_state.registers[crate::vm::reg_abi::REG_A2];
@@ -351,6 +380,6 @@ impl Simulator {
             }
         }
 
-        Ok((self.hart_state.pc + 4, None))
+        Ok((self.hart_state.pc + 4, None, 9))
     }
 }
