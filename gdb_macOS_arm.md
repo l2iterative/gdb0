@@ -20,7 +20,7 @@ host@host:~$ qemu-img create -f qcow2 gdb.img 10G
 ```
 
 Then, download the Ubuntu Server ISO (https://ubuntu.com/download/server) and start a QEMU simulation for x86-64 with that ISO.
-We recommend a recent one because we do need a recent version of `gdb-multiarch`, which would support riscv32.
+We recommend a very recent one (23.10 instead of 22.04) because we do need a recent version of `gdb-multiarch`, which would support riscv32 and can demangle it.
 ```console
 host@host:~$ qemu-system-x86_64 -m 4096 -drive file=gdb.img -net user,hostfwd=tcp::10022-:22 -net nic -cdrom ./ubuntu-22.04.3-live-server-amd64.iso 
 ```
