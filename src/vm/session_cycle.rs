@@ -13,7 +13,7 @@ use std::collections::HashSet;
 // 1 cycle for triggering the byte init column
 // 1561 cycles for triggering the byte setup column (32 * 1024 / 21 ceiling div = 1561)
 // 1 cycle for triggering the RAM init column
-// (64 + 8 + 8) cycles for putting the initial RAM data into the system, incurring 27 cycles
+// (64 + 8 + 8) elements to be put into the initial RAM data into the system, incurring 27 cycles
 // 2 cycles for sending a RESET command
 pub const PRE_CYCLE: usize = 1 + 1561 + 1 + 27 + 2;
 
