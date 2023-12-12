@@ -1,6 +1,6 @@
 # Standalone VM and GDB stub for RISC Zero guest programs
 
-<img src="title.png" align="right" alt="a man walking on a map" width="400"/>
+<img src="title.png" align="right" alt="a man walking on a map" width="300"/>
 
 This repository implements two things:
 - a virtual machine for RISC Zero guest programs that runs RISC-V instructions and mimics RISC Zero's syscalls
