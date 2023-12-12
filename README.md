@@ -1,4 +1,6 @@
-# Dynamic code analysis for RISC Zero guest programs
+# Standalone VM and GDB stub for RISC Zero guest programs
+
+<img src="title.png" align="right" alt="a man walking on a map" width="400"/>
 
 This repository implements two things:
 - a virtual machine for RISC Zero guest programs that runs RISC-V instructions and mimics RISC Zero's syscalls
@@ -6,7 +8,10 @@ This repository implements two things:
 
 The debugger supports a large number of features that GDB needs. It allows GDB to read the ELF file, which is 
 helpful if the symbol tables are present, set software breakpoints, set hardware watchpoints, single-step, 
-and access memory and registers. We have not yet implemented reverse single-step and continue, which would allow 
+and access memory and registers. At the same time, one can also sees how many cycles are used, how many pages 
+are loaded or unloaded.
+
+We have not yet implemented reverse single-step and continue, which would allow 
 GDB to go back in time but add some complexity due to the need to reverting an instruction. 
 
 ## Find a GDB implementation that works for RISC-V
