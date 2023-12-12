@@ -25,9 +25,10 @@ very common architectures.
 There are two ways to obtain a collaborative GDB.
 
 - On Ubuntu systems, one can install `gdb-multiarch`, which supports a large number of target platforms including
-  32-bit RISC-V
+  32-bit RISC-V. This would require a very recent version of Ubuntu, as older `gdb-multiarch` may fail to demangle
+  the function names properly.
 - Compile GDB from the source (https://www.sourceware.org/gdb/) and do `./configure --target=riscv32` to obtain a
-  dedicated GDB that only has 32-bit RISC-V
+  dedicated GDB that only has 32-bit RISC-V.
 
 ## New RISC-Zero-specific functions for GDB
 
