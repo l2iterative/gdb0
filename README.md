@@ -51,7 +51,7 @@ The second function provides a verbose explanation about the segments and cycles
 ## Get RISC Zero to include debug information
 
 If the guest is compiled with `RISC0_BUILD_DEBUG=1`, RISC Zero Rust compiler will include very useful debug information, 
-which allows GDB to know---for example---the line of the code in the source file that an instruction belongs to.
+which allows GDB to know—for example—the line of the code in the source file that an instruction belongs to.
 
 ```gdb
 (gdb) b *0x200d18 (short for "break *0x200d18")
