@@ -50,3 +50,40 @@ your machine, you can install `net-tools` and look it up through `sudo ifconfig`
 (gdb) tar rem 10.0.2.2:9000
 ```
 
+### Enable the gdb-multiarch to read source files from the host
+
+If the program is compiled with the debug information, we can further let GDB load the source files, 
+so that we can see the files side-by-side. The problem is that our GDB is running within the guest virtual
+machine and does not have access to those source code files.
+
+We find a method from [here](https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu). 
+This can be solved by attaching the host filesystem (the root /) to the guest, so that the guest can access the root.
+```bash
+host@host:~$ qemu-system-x86_64 -m 4096 -drive file=gdb.img -net user,hostfwd=tcp::10022-:22 -net nic --virtfs local,path=/,security_model=none,mount_tag=hostshare
+```
+
+And in the guest, 
+```bash
+ubuntu@target:~$ sudo mkdir /wherever
+ubuntu@target:~$ sudo chmod 0777 /wherever
+```
+
+Then, `sudo vim` to edit `/etc/fstab` to include the following line.
+```
+hostshare   /wherever    9p      trans=virtio,version=9p2000.L   0 0
+```
+
+Refresh the information.
+```bash
+ubuntu@target:~$ sudo mount -a
+ubuntu@target:~$ sudo systemctl daemon-reload 
+```
+
+Then, in GDB, we tell GDB that the source files can be found at /wherever
+```gdb
+(gdb) set substitute-path / /wherever
+```
+
+Then, `layout split` should work if the program runs into the part where the source code is available.
+The very beginning of an RISC Zero guest program would not have the source because the beginning is some
+assembly. But, starting from the entry function, source codes can be found.
