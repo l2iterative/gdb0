@@ -48,6 +48,18 @@ The second function provides a verbose explanation about the segments and cycles
 0 segments finished, current segment has taken 20838 cycles, 10 pages are loaded, 6 pages need to be stored
 ```
 
+## Get RISC Zero to include debug information
+
+If the guest is compiled with `RISC0_BUILD_DEBUG=1`, RISC Zero Rust compiler will include very useful debug information, 
+which allows GDB to know---for example---the line of the code in the source file that an instruction belongs to.
+
+```gdb
+(gdb) b *0x200d18 (short for "break *0x200d18")
+Breakpoint 1 at 0x200d18: file src/ttfhe/poly.rs, line 21.
+```
+
+Since GDB knows the line of code, it is able to---if GDB can find the source files---show the code side-by-side.
+
 ## Simple cheatsheet for GDB
 
 For a general cheatsheet, check out https://darkdust.net/files/GDB%20Cheat%20Sheet.pdf. 
