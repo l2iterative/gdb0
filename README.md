@@ -64,6 +64,16 @@ This should be the case if you are running GDB in the same machine.
 If you are running GDB in a guest VM, such as what we do for Metal 
 chips, additional efforts are needed to mount the host to the guest. See [gdb_macOS_arm.md](gdb_macOS_arm.md) for how to do.
 
+Note that `RISC0_BUILD_DEBUG=1` may turn off optimization, which would make the program very slow. To address that issue, modify the 
+Cargo.toml file in the guest directory with the following profile configurations.
+```toml
+[profile.dev] 
+opt-level = 3 
+
+[profile.dev.build-override] 
+opt-level = 3
+```
+
 ## Simple cheatsheet for GDB
 
 For a general cheatsheet, check out https://darkdust.net/files/GDB%20Cheat%20Sheet.pdf. 
