@@ -58,12 +58,12 @@ machine and does not have access to those source code files.
 
 We find a method from [here](https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu). 
 This can be solved by attaching the host filesystem (the root /) to the guest, so that the guest can access the root.
-```bash
+```console
 host@host:~$ qemu-system-x86_64 -m 4096 -drive file=gdb.img -net user,hostfwd=tcp::10022-:22 -net nic --virtfs local,path=/,security_model=none,mount_tag=hostshare
 ```
 
 And in the guest, 
-```bash
+```console
 ubuntu@target:~$ sudo mkdir /wherever
 ubuntu@target:~$ sudo chmod 0777 /wherever
 ```
@@ -74,7 +74,7 @@ hostshare   /wherever    9p      trans=virtio,version=9p2000.L   0 0
 ```
 
 Refresh the information.
-```bash
+```console
 ubuntu@target:~$ sudo mount -a
 ubuntu@target:~$ sudo systemctl daemon-reload 
 ```
