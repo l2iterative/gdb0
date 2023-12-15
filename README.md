@@ -58,7 +58,11 @@ which allows GDB to know---for example---the line of the code in the source file
 Breakpoint 1 at 0x200d18: file src/ttfhe/poly.rs, line 21.
 ```
 
-Since GDB knows the line of code, it is able to---if GDB can find the source files---show the code side-by-side.
+Since GDB knows the line of code, it is able to show the source code side by side, as long as the source files are available to GDB. 
+This should be the case if you are running GDB in the same machine. 
+
+If you are running GDB in a guest VM, such as what we do for Metal 
+chips, additional efforts are needed to mount the host to the guest. See [gdb_macOS_arm.md](gdb_macOS_arm.md) for how to do.
 
 ## Simple cheatsheet for GDB
 
@@ -84,6 +88,11 @@ To find functions to manipulate, one can query a list of functions in the ELF fi
 To get a user-friendly interface, one can turn on the Text User Interface (TUI). 
 ```gdb
 (gdb) la a (short for "layout asm")
+```
+
+If source files are available, it is a better idea to show the source code alongside.
+```gdb
+(gdb) la sp (short for "layout split")
 ```
 
 One can read all the registers.
