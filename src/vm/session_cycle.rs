@@ -165,7 +165,7 @@ pub fn get_opcode_cycle(insn: u32) -> Result<usize> {
         0b0010011 => match funct3 {
             0x0 | 0x1 | 0x2 | 0x3 => 1,
             0x4 | 0x5 | 0x6 | 0x7 => 2,
-            _ => bail!("Illegal instruction1"),
+            _ => bail!("Illegal instruction"),
         },
         0b0010111 => 1,
         0b0100011 => 1,
@@ -188,13 +188,13 @@ pub fn get_opcode_cycle(insn: u32) -> Result<usize> {
             (0x5, 0x01) => 2,
             (0x6, 0x01) => 2,
             (0x7, 0x01) => 2,
-            _ => bail!("Illegal instruction2"),
+            _ => bail!("Illegal instruction"),
         },
         0b0110111 => 1,
         0b1100011 => 1,
         0b1100111 => 1,
         0b1101111 => 1,
         0b1110011 => 1,
-        _ => bail!("Illegal instruction3"),
+        _ => bail!("Illegal instruction"),
     })
 }
