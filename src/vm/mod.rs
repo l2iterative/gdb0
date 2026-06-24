@@ -1,5 +1,6 @@
 use gdbstub::target::ext::breakpoints::WatchKind;
 
+mod bibc;
 pub mod loader;
 pub mod memory;
 pub mod session_cycle;
@@ -49,11 +50,57 @@ pub mod ecall {
     pub const SOFTWARE: u32 = 2;
     pub const SHA: u32 = 3;
     pub const BIGINT: u32 = 4;
+    pub const USER: u32 = 5;
+    pub const BIGINT2: u32 = 6;
+    pub const POSEIDON2: u32 = 7;
 }
 
 pub mod halt {
     pub const TERMINATE: u32 = 0;
     pub const PAUSE: u32 = 1;
+    pub const SPLIT: u32 = 2;
+}
+
+pub mod syscall_id {
+    pub const UNKNOWN: u32 = 0;
+    pub const ARGC: u32 = 1;
+    pub const ARGV: u32 = 2;
+    pub const CYCLE_COUNT: u32 = 3;
+    pub const EXIT: u32 = 4;
+    pub const FORK: u32 = 5;
+    pub const GETENV: u32 = 6;
+    pub const KECCAK: u32 = 7;
+    pub const LOG: u32 = 8;
+    pub const PANIC: u32 = 9;
+    pub const PIPE: u32 = 10;
+    pub const RANDOM: u32 = 11;
+    pub const READ: u32 = 12;
+    pub const USER: u32 = 13;
+    pub const VERIFY_INTEGRITY: u32 = 14;
+    pub const VERIFY_INTEGRITY2: u32 = 15;
+    pub const WRITE: u32 = 16;
+    pub const PROVE_ZKR: u32 = 17;
+}
+
+pub mod keccak_mode {
+    pub const KECCAK_PERMUTE: u32 = 0;
+    pub const KECCAK_PROVE: u32 = 1;
+}
+
+pub mod host_ecall {
+    pub const TERMINATE: u32 = 0;
+    pub const READ: u32 = 1;
+    pub const WRITE: u32 = 2;
+    pub const POSEIDON2: u32 = 3;
+    pub const SHA2: u32 = 4;
+    pub const BIGINT: u32 = 5;
+}
+
+pub const MAX_IO_BYTES: u32 = 1024;
+
+pub mod poseidon2 {
+    pub const PFLAG_IS_ELEM: u32 = 0x8000_0000;
+    pub const PFLAG_CHECK_OUT: u32 = 0x4000_0000;
 }
 
 /// Standard IO file descriptors for use with sys_read and sys_write.

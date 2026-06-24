@@ -5,8 +5,28 @@ use rrs_lib::MemAccessSize;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
-pub const GUEST_MIN_MEM: usize = 0x0000_0400;
-pub const GUEST_MAX_MEM: usize = 0x0C00_0000;
+pub const GUEST_MIN_MEM: usize = 0x0000_4000;
+pub const GUEST_MAX_MEM: usize = 0xC000_0000;
+
+pub fn is_guest_memory(addr: u32) -> bool {
+    GUEST_MIN_MEM <= addr as usize && (addr as usize) < GUEST_MAX_MEM
+}
+
+pub fn is_guest_region(addr: u32, len: usize) -> bool {
+    let Some(end) = (addr as usize).checked_add(len) else {
+        return false;
+    };
+
+    GUEST_MIN_MEM <= addr as usize && end <= GUEST_MAX_MEM
+}
+
+fn access_len(size: MemAccessSize) -> usize {
+    match size {
+        MemAccessSize::Byte => 1,
+        MemAccessSize::HalfWord => 2,
+        MemAccessSize::Word => 4,
+    }
+}
 
 #[derive(Default)]
 pub struct Memory {
@@ -55,7 +75,7 @@ impl Memory {
         size: MemAccessSize,
         privileged: bool,
     ) -> Option<u32> {
-        if (addr as usize) < GUEST_MIN_MEM || (addr as usize) > GUEST_MAX_MEM {
+        if !is_guest_region(addr, access_len(size)) {
             return None;
         }
 
@@ -119,7 +139,7 @@ impl Memory {
         store_data: u32,
         privileged: bool,
     ) -> bool {
-        if (addr as usize) < GUEST_MIN_MEM || (addr as usize) > GUEST_MAX_MEM {
+        if !is_guest_region(addr, access_len(size)) {
             return false;
         }
 
