@@ -35,6 +35,11 @@ Relevant upstream files:
 - Keccak permutation, pipe fds, short reads, current cycle-count hi/lo returns,
   current two-word return buffers, and current log formatting are covered by
   focused unit tests.
+- `scripts/verify-syscalls.sh` runs a syscall-focused test target. The tests
+  compare local numeric syscall IDs, `nr::SYS_*` names, guest ecall constants,
+  host ecall constants, file descriptors, `MAX_IO_BYTES`, Keccak modes, and
+  Poseidon2 flags directly against `risc0-zkvm-platform` /
+  `risc0-circuit-rv32im` `5.0.0-rc.1`.
 
 ## Upstream Executor Path
 
@@ -46,6 +51,35 @@ GDB read/write/breakpoint code currently mutates directly.
 
 That is the likely route to a truly current debugger, but it is a larger
 executor replacement rather than a local syscall compatibility patch.
+
+## Native Executor Bridge Added
+
+This repo now has an explicit native path in `src/vm/native.rs`:
+
+- Raw user ELFs are wrapped as current `risc0_binfmt::ProgramBinary` values
+  with `risc0_zkos_v1compat::V1COMPAT_ELF`.
+- `--native-smoke` constructs `risc0_zkvm::ExecutorImpl` and runs a bounded
+  execution through RISC Zero's current host syscall table.
+- `--native-gdb` constructs the same executor and hands control to RISC Zero's
+  native `run_with_debugger()` path.
+- `.cargo/config.toml` sets `RISC0_SKIP_BUILD_KERNELS=1` so execution/debugger
+  builds do not require the Apple Metal toolchain just because `ExecutorImpl`
+  is exported behind the `prove` feature.
+
+Validation found an important compatibility boundary:
+
+- A current packaged RISC Zero example ELF
+  (`risc0-zkvm-5.0.0-rc.1/examples/loop.bin`) runs through the new native
+  bridge and halts cleanly with `Halted(0)`.
+- The checked-in `code` ELF is old enough that, when wrapped with the current
+  v1compat kernel, it enters the official executor but fails in machine mode:
+  `Execution failed at program counter 0xc0000a68: Illegal trap in machine
+  mode`.
+
+So the native bridge is compatible with current RISC Zero ELFs/syscalls, but
+the historical sample ELF is not transparently compatible with today's
+v1compat kernel. Keeping the standalone compatibility VM remains useful for
+debugging that artifact.
 
 ## Still Not A Full Current RISC Zero VM
 

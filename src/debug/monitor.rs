@@ -1,5 +1,6 @@
 use crate::debug::debugger::Debugger;
 use crate::vm::session_cycle::*;
+use crate::vm::VmContext;
 use gdbstub::outputln;
 use gdbstub::target::ext::monitor_cmd::{ConsoleOutput, MonitorCmd};
 
@@ -23,9 +24,7 @@ impl MonitorCmd for Debugger {
                 count_ref.cur_segment_cycle + PRE_CYCLE + POST_CYCLE + OTHER_CONST_CYCLE,
                 count_ref.cur_segment_resident.len(), count_ref.cur_segment_dirty.len());
         } else if cmd.starts_with('c') {
-            let sim_ref = self.simulator.borrow();
-            let count_ref = sim_ref.session_cycle_count.borrow();
-            outputln!(out, "{}", count_ref.get_session_cycle());
+            outputln!(out, "{}", self.simulator.borrow().get_cycle_count());
         } else {
             outputln!(out, "Supported commands: c(ycle) -- display cycle counts, v(erbose) -- display detailed cycle information");
         }

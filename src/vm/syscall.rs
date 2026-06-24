@@ -372,6 +372,7 @@ fn handle_keccak(to_guest: &mut [u32], vm: &mut Simulator) -> Result<()> {
 mod tests {
     use super::*;
     use crate::vm::memory::Memory as GuestMemory;
+    use risc0_zkvm_platform::syscall::{nr, Syscall};
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;
@@ -389,6 +390,160 @@ mod tests {
                 *byte as u32,
             ));
         }
+    }
+
+    fn current_syscall_id(syscall: Syscall) -> u32 {
+        let id: usize = syscall.into();
+        id.try_into().unwrap()
+    }
+
+    #[test]
+    fn syscall_numbers_match_current_risc0_platform() {
+        assert_eq!(vm::syscall_id::ARGC, current_syscall_id(Syscall::Argc));
+        assert_eq!(vm::syscall_id::ARGV, current_syscall_id(Syscall::Argv));
+        assert_eq!(
+            vm::syscall_id::CYCLE_COUNT,
+            current_syscall_id(Syscall::CycleCount)
+        );
+        assert_eq!(vm::syscall_id::EXIT, current_syscall_id(Syscall::Exit));
+        assert_eq!(vm::syscall_id::FORK, current_syscall_id(Syscall::Fork));
+        assert_eq!(vm::syscall_id::GETENV, current_syscall_id(Syscall::Getenv));
+        assert_eq!(vm::syscall_id::KECCAK, current_syscall_id(Syscall::Keccak));
+        assert_eq!(vm::syscall_id::LOG, current_syscall_id(Syscall::Log));
+        assert_eq!(vm::syscall_id::PANIC, current_syscall_id(Syscall::Panic));
+        assert_eq!(vm::syscall_id::PIPE, current_syscall_id(Syscall::Pipe));
+        assert_eq!(vm::syscall_id::RANDOM, current_syscall_id(Syscall::Random));
+        assert_eq!(vm::syscall_id::READ, current_syscall_id(Syscall::Read));
+        assert_eq!(vm::syscall_id::USER, current_syscall_id(Syscall::User));
+        assert_eq!(
+            vm::syscall_id::VERIFY_INTEGRITY,
+            current_syscall_id(Syscall::VerifyIntegrity)
+        );
+        assert_eq!(
+            vm::syscall_id::VERIFY_INTEGRITY2,
+            current_syscall_id(Syscall::VerifyIntegrity2)
+        );
+        assert_eq!(vm::syscall_id::WRITE, current_syscall_id(Syscall::Write));
+        assert_eq!(
+            vm::syscall_id::PROVE_ZKR,
+            current_syscall_id(Syscall::ProveZkr)
+        );
+    }
+
+    #[test]
+    fn syscall_names_match_current_risc0_platform() {
+        let cases = [
+            (nr::SYS_ARGC.as_str(), Syscall::Argc, SyscallKind::Argc),
+            (nr::SYS_ARGV.as_str(), Syscall::Argv, SyscallKind::Argv),
+            (
+                nr::SYS_CYCLE_COUNT.as_str(),
+                Syscall::CycleCount,
+                SyscallKind::CycleCount,
+            ),
+            (nr::SYS_EXIT.as_str(), Syscall::Exit, SyscallKind::Exit),
+            (nr::SYS_FORK.as_str(), Syscall::Fork, SyscallKind::Fork),
+            (
+                nr::SYS_GETENV.as_str(),
+                Syscall::Getenv,
+                SyscallKind::Getenv,
+            ),
+            (
+                nr::SYS_KECCAK.as_str(),
+                Syscall::Keccak,
+                SyscallKind::Keccak,
+            ),
+            (nr::SYS_LOG.as_str(), Syscall::Log, SyscallKind::Log),
+            (nr::SYS_PANIC.as_str(), Syscall::Panic, SyscallKind::Panic),
+            (nr::SYS_PIPE.as_str(), Syscall::Pipe, SyscallKind::Pipe),
+            (
+                nr::SYS_RANDOM.as_str(),
+                Syscall::Random,
+                SyscallKind::Random,
+            ),
+            (nr::SYS_READ.as_str(), Syscall::Read, SyscallKind::Read),
+            (
+                nr::SYS_VERIFY_INTEGRITY.as_str(),
+                Syscall::VerifyIntegrity,
+                SyscallKind::VerifyIntegrity,
+            ),
+            (
+                nr::SYS_VERIFY_INTEGRITY2.as_str(),
+                Syscall::VerifyIntegrity2,
+                SyscallKind::VerifyIntegrity2,
+            ),
+            (nr::SYS_WRITE.as_str(), Syscall::Write, SyscallKind::Write),
+        ];
+
+        for (name, id, expected) in cases {
+            assert_eq!(
+                classify_syscall(name, current_syscall_id(id)).unwrap(),
+                (expected, true),
+                "{name}"
+            );
+        }
+
+        #[allow(deprecated)]
+        {
+            assert_eq!(
+                classify_syscall(
+                    nr::SYS_PROVE_KECCAK.as_str(),
+                    current_syscall_id(Syscall::Keccak),
+                )
+                .unwrap(),
+                (SyscallKind::Keccak, true)
+            );
+            assert_eq!(
+                classify_syscall(
+                    nr::SYS_PROVE_ZKR.as_str(),
+                    current_syscall_id(Syscall::ProveZkr),
+                )
+                .unwrap(),
+                (SyscallKind::ProveZkr, true)
+            );
+        }
+    }
+
+    #[test]
+    fn ecall_and_fd_constants_match_current_risc0_crates() {
+        use risc0_circuit_rv32im::execute as rv32im;
+        use risc0_zkvm_platform::{fileno, syscall as platform_syscall};
+
+        assert_eq!(vm::ecall::HALT, platform_syscall::ecall::HALT);
+        assert_eq!(vm::ecall::INPUT, platform_syscall::ecall::INPUT);
+        assert_eq!(vm::ecall::SOFTWARE, platform_syscall::ecall::SOFTWARE);
+        assert_eq!(vm::ecall::SHA, platform_syscall::ecall::SHA);
+        assert_eq!(vm::ecall::BIGINT, platform_syscall::ecall::BIGINT);
+        assert_eq!(vm::ecall::USER, platform_syscall::ecall::USER);
+        assert_eq!(vm::ecall::BIGINT2, platform_syscall::ecall::BIGINT2);
+        assert_eq!(vm::ecall::POSEIDON2, platform_syscall::ecall::POSEIDON2);
+
+        assert_eq!(vm::halt::TERMINATE, platform_syscall::halt::TERMINATE);
+        assert_eq!(vm::halt::PAUSE, platform_syscall::halt::PAUSE);
+        assert_eq!(vm::halt::SPLIT, platform_syscall::halt::SPLIT);
+
+        assert_eq!(vm::fileno::STDIN, fileno::STDIN);
+        assert_eq!(vm::fileno::STDOUT, fileno::STDOUT);
+        assert_eq!(vm::fileno::STDERR, fileno::STDERR);
+        assert_eq!(vm::fileno::JOURNAL, fileno::JOURNAL);
+
+        assert_eq!(vm::host_ecall::TERMINATE, rv32im::HOST_ECALL_TERMINATE);
+        assert_eq!(vm::host_ecall::READ, rv32im::HOST_ECALL_READ);
+        assert_eq!(vm::host_ecall::WRITE, rv32im::HOST_ECALL_WRITE);
+        assert_eq!(vm::host_ecall::POSEIDON2, rv32im::HOST_ECALL_POSEIDON2);
+        assert_eq!(vm::host_ecall::SHA2, rv32im::HOST_ECALL_SHA2);
+        assert_eq!(vm::host_ecall::BIGINT, rv32im::HOST_ECALL_BIGINT);
+        assert_eq!(vm::MAX_IO_BYTES, rv32im::MAX_IO_BYTES);
+
+        assert_eq!(
+            vm::keccak_mode::KECCAK_PERMUTE,
+            platform_syscall::keccak_mode::KECCAK_PERMUTE
+        );
+        assert_eq!(
+            vm::keccak_mode::KECCAK_PROVE,
+            platform_syscall::keccak_mode::KECCAK_PROVE
+        );
+        assert_eq!(vm::poseidon2::PFLAG_IS_ELEM, rv32im::PFLAG_IS_ELEM);
+        assert_eq!(vm::poseidon2::PFLAG_CHECK_OUT, rv32im::PFLAG_CHECK_OUT);
     }
 
     #[test]

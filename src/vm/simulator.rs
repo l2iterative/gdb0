@@ -28,6 +28,7 @@ const BIGINT2_USER_END_ADDR: u32 = 0xbfff_0000;
 pub struct Simulator {
     pub mem: Rc<RefCell<vm::memory::Memory>>,
     pub hart_state: HartState,
+    pub machine_mode: u32,
     pub env: HashMap<String, String>,
     pub stdin: Cursor<Vec<u8>>,
     pub stdout: Cursor<Vec<u8>>,
@@ -155,6 +156,7 @@ impl Simulator {
         Self {
             mem,
             hart_state,
+            machine_mode: 0,
             env: env.clone(),
             stdin: Cursor::default(),
             stdout: Cursor::default(),
@@ -336,6 +338,103 @@ impl Simulator {
 
     pub fn args(&mut self, args: &[String]) {
         self.args.extend_from_slice(args);
+    }
+
+    pub(crate) fn get_pc(&self) -> u32 {
+        self.hart_state.pc
+    }
+
+    pub(crate) fn set_pc(&mut self, pc: u32) {
+        self.hart_state.pc = pc;
+    }
+
+    pub(crate) fn load_register(&self, idx: usize) -> Option<u32> {
+        self.hart_state.registers.get(idx).copied()
+    }
+
+    pub(crate) fn store_register(&mut self, idx: usize, word: u32) -> bool {
+        let Some(register) = self.hart_state.registers.get_mut(idx) else {
+            return false;
+        };
+        *register = word;
+        true
+    }
+
+    fn register_bank(addr: u32, len: usize) -> Option<u32> {
+        let end = addr.checked_add(len as u32)?;
+        for base in [vm::MACHINE_REGS_ADDR, vm::USER_REGS_ADDR] {
+            let bank_end = base.checked_add(vm::REG_BANK_BYTES)?;
+            if base <= addr && end <= bank_end {
+                return Some(base);
+            }
+        }
+        None
+    }
+
+    fn register_byte(&self, addr: u32) -> Option<u8> {
+        let base = Self::register_bank(addr, 1)?;
+        let offset = (addr - base) as usize;
+        let idx = offset / core::mem::size_of::<u32>();
+        let byte_idx = offset % core::mem::size_of::<u32>();
+        Some(self.load_register(idx)?.to_le_bytes()[byte_idx])
+    }
+
+    fn write_register_byte(&mut self, addr: u32, byte: u8) -> bool {
+        let Some(base) = Self::register_bank(addr, 1) else {
+            return false;
+        };
+        let offset = (addr - base) as usize;
+        let idx = offset / core::mem::size_of::<u32>();
+        let byte_idx = offset % core::mem::size_of::<u32>();
+        let Some(word) = self.load_register(idx) else {
+            return false;
+        };
+
+        let mut bytes = word.to_le_bytes();
+        bytes[byte_idx] = byte;
+        self.store_register(idx, u32::from_le_bytes(bytes))
+    }
+
+    pub(crate) fn read_debug_mem(&mut self, addr: u32, size: MemAccessSize) -> Option<u32> {
+        let len = match size {
+            MemAccessSize::Byte => 1,
+            MemAccessSize::HalfWord => 2,
+            MemAccessSize::Word => 4,
+        };
+
+        if Self::register_bank(addr, len).is_some() {
+            let mut bytes = [0u8; core::mem::size_of::<u32>()];
+            for (i, byte) in bytes.iter_mut().enumerate().take(len) {
+                *byte = self.register_byte(addr + i as u32)?;
+            }
+            return Some(u32::from_le_bytes(bytes));
+        }
+
+        self.mem
+            .borrow_mut()
+            .read_mem_with_privileges(addr, size, true)
+    }
+
+    pub(crate) fn write_debug_mem(&mut self, addr: u32, size: MemAccessSize, word: u32) -> bool {
+        let len = match size {
+            MemAccessSize::Byte => 1,
+            MemAccessSize::HalfWord => 2,
+            MemAccessSize::Word => 4,
+        };
+
+        if Self::register_bank(addr, len).is_some() {
+            let bytes = word.to_le_bytes();
+            for (i, byte) in bytes.iter().copied().enumerate().take(len) {
+                if !self.write_register_byte(addr + i as u32, byte) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        self.mem
+            .borrow_mut()
+            .write_mem_with_privileges(addr, size, word, true)
     }
 
     pub fn step(&mut self) -> Result<Option<ExitCode>> {
@@ -912,6 +1011,87 @@ impl Simulator {
     }
 }
 
+impl vm::VmContext for Simulator {
+    fn get_pc(&self) -> u32 {
+        self.get_pc()
+    }
+
+    fn set_pc(&mut self, pc: u32) {
+        self.set_pc(pc);
+    }
+
+    fn get_machine_mode(&self) -> u32 {
+        self.machine_mode
+    }
+
+    fn set_machine_mode(&mut self, mode: u32) {
+        self.machine_mode = mode;
+    }
+
+    fn load_register(&self, idx: usize) -> Option<u32> {
+        self.load_register(idx)
+    }
+
+    fn store_register(&mut self, idx: usize, word: u32) -> bool {
+        self.store_register(idx, word)
+    }
+
+    fn read_debug_mem(&mut self, addr: u32, size: MemAccessSize) -> Option<u32> {
+        self.read_debug_mem(addr, size)
+    }
+
+    fn write_debug_mem(&mut self, addr: u32, size: MemAccessSize, word: u32) -> bool {
+        self.write_debug_mem(addr, size, word)
+    }
+
+    fn add_hw_watchpoint(
+        &mut self,
+        addr: u32,
+        len: u32,
+        kind: gdbstub::target::ext::breakpoints::WatchKind,
+    ) -> bool {
+        if self
+            .mem
+            .borrow()
+            .hw_watchpoints
+            .contains(&(addr, len, kind))
+        {
+            false
+        } else {
+            self.mem.borrow_mut().hw_watchpoints.push((addr, len, kind));
+            true
+        }
+    }
+
+    fn remove_hw_watchpoint(
+        &mut self,
+        addr: u32,
+        len: u32,
+        kind: gdbstub::target::ext::breakpoints::WatchKind,
+    ) -> bool {
+        let idx = self
+            .mem
+            .borrow()
+            .hw_watchpoints
+            .iter()
+            .position(|x| *x == (addr, len, kind));
+        if let Some(idx) = idx {
+            self.mem.borrow_mut().hw_watchpoints.remove(idx);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn step(&mut self) -> Result<Option<ExitCode>> {
+        self.step()
+    }
+
+    fn get_cycle_count(&self) -> u64 {
+        self.session_cycle_count.borrow().get_session_cycle() as u64
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -945,6 +1125,27 @@ mod tests {
                     .unwrap()
             })
             .collect()
+    }
+
+    #[test]
+    fn debug_memory_exposes_current_register_windows() {
+        let mut vm = new_simulator();
+        vm.store_register(REG_A0, 0x1122_3344);
+        vm.store_register(REG_A1, 0x5566_7788);
+
+        let a0_user_addr = vm::USER_REGS_ADDR + (REG_A0 * core::mem::size_of::<u32>()) as u32;
+        let a1_machine_addr = vm::MACHINE_REGS_ADDR + (REG_A1 * core::mem::size_of::<u32>()) as u32;
+
+        assert_eq!(
+            vm.read_debug_mem(a0_user_addr, MemAccessSize::Word),
+            Some(0x1122_3344)
+        );
+        assert_eq!(
+            vm.read_debug_mem(a0_user_addr + 1, MemAccessSize::HalfWord),
+            Some(0x2233)
+        );
+        assert!(vm.write_debug_mem(a1_machine_addr + 2, MemAccessSize::Byte, 0xaa));
+        assert_eq!(vm.load_register(REG_A1), Some(0x55aa_7788));
     }
 
     fn encode_bibc_op(code: u64, result_type: u64, a: u64, b: u64) -> u64 {

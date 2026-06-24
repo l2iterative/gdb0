@@ -1,89 +1,173 @@
-## Getting GDB to work on macOS with Apple's ARM chips
+## Debugging on macOS with Apple Silicon
 
-There appears to be no way to run GDB directly on macOS at this moment. 
+This page used to recommend running GDB inside an x86-64 Ubuntu VM because GDB
+was hard to use directly on Apple Silicon. That is no longer the first thing to
+try.
 
-In addition, LLDB does not work, because at this moment, LLDB does not recognize 
-32-bit RISC-V architecture and would be unable to understand the frames and would 
-uncontrollably keep single-stepping the program. It appears that generations of 
-developers have tried to fill in this gap, but LLDB is just very different from GDB and is not a substitute. 
-
-For these users, we recommend using a separate machine, such as a cloud instance, or a virtual machine to run GDB. 
-People who opt in for macOS with ARM chips, including me myself, should have expected such situations to emerge one day.
-
-Below we provide a way to get GDB running through QEMU. 
-
-### Setting up a virtual machine for GDB via QEMU
-
-We can start by creating an image.
-```console
-host@host:~$ qemu-img create -f qcow2 gdb.img 10G
-```
-
-Then, download the Ubuntu Server ISO (https://ubuntu.com/download/server) and start a QEMU simulation for x86-64 with that ISO.
-
-It is important to use a very recent version of Ubuntu. For example, use 23.10 instead of 22.04 because we do need a recent version 
-of `gdb-multiarch`, which would support riscv32 and is capable to demangle it (which is mangled by Rust).
+As of 2026, Homebrew provides
+[`riscv64-elf-gdb`](https://formulae.brew.sh/formula/riscv64-elf-gdb) bottles
+for Apple Silicon. This is the easiest GDB client for this repository on macOS:
 
 ```console
-host@host:~$ qemu-system-x86_64 -m 4096 -drive file=gdb.img -net user,hostfwd=tcp::10022-:22 -net nic -cdrom ./ubuntu-22.04.3-live-server-amd64.iso 
+$ brew install riscv64-elf-gdb
+$ cargo build
+$ cargo run
 ```
 
-A window should pop up for the virtual machine. Follow the steps to install Ubuntu and remember to enable openssh server, 
-as it can be useful to access the target through SSH (here, using port 10022).
+In another terminal:
 
-After finishing the installation, quit the virtual machine and open the virtual machine again without the image.
 ```console
-host@host:~$ qemu-system-x86_64 -m 4096 -drive file=gdb.img -net user,hostfwd=tcp::10022-:22 -net nic 
+$ riscv64-elf-gdb -q code
 ```
 
-Then, we install `gdb-multiarch`. 
-```console
-ubuntu@target:~$ sudo apt update
-ubuntu@target:~$ sudo apt install gdb-multiarch
-```
-
-We can then enter GDB as usual (using `gdb-multiarch`, not `gdb`). 
-To connect to the host, instead of using 127.0.0.1, use 10.0.2.2. If the address is different on 
-your machine, you can install `net-tools` and look it up through `sudo ifconfig`.
+Then in GDB:
 
 ```gdb
-(gdb) tar rem 10.0.2.2:9000
+(gdb) set architecture riscv:rv32
+(gdb) set print asm-demangle on
+(gdb) target remote 127.0.0.1:9000
 ```
 
-### Enable the gdb-multiarch to read source files from the host
+Even though the package name says `riscv64`, this GDB can read the checked-in
+`code` ELF as `elf32-littleriscv` once the architecture is set to
+`riscv:rv32`.
 
-If the program is compiled with the debug information, we can further let GDB load the source files, 
-so that we can see the files side-by-side. The problem is that our GDB is running within the guest virtual
-machine and does not have access to those source code files.
+You can verify the setup with:
 
-We find a method from [here](https://superuser.com/questions/628169/how-to-share-a-directory-with-the-host-without-networking-in-qemu). 
-This can be solved by attaching the host filesystem (the root /) to the guest, so that the guest can access the root.
 ```console
-host@host:~$ qemu-system-x86_64 -m 4096 -drive file=gdb.img -net user,hostfwd=tcp::10022-:22 -net nic --virtfs local,path=/,security_model=none,mount_tag=hostshare
+$ bash scripts/gdb-smoke.sh
 ```
 
-And in the guest, 
+The script starts `r0db`, connects `riscv64-elf-gdb`, single-steps once, and
+checks that the instruction at `_start + 4` is decoded.
+
+## LLDB status
+
+LLDB is better than it was when this project was first written. Current Apple
+LLDB can create a RISC-V 32-bit target:
+
 ```console
-ubuntu@target:~$ sudo mkdir /wherever
-ubuntu@target:~$ sudo chmod 0777 /wherever
+$ lldb -b \
+    -o 'target create --arch riscv32 code' \
+    -o 'image list' \
+    -o 'quit'
 ```
 
-Then, `sudo vim` to edit `/etc/fstab` to include the following line.
-```
-hostshare   /wherever    9p      trans=virtio,version=9p2000.L   0 0
+On the local machine this reports the executable as `riscv32`.
+
+Upstream context: LLDB has a RISC-V support tracking issue in
+[`llvm-project`](https://github.com/llvm/llvm-project/issues/55383), documents
+its [GDB remote protocol behavior](https://lldb.llvm.org/resources/lldbgdbremote.html),
+and the [LLVM 20 release notes](https://releases.llvm.org/20.1.0/docs/ReleaseNotes.html)
+mention additional RISC-V LLDB improvements.
+
+That does not yet make LLDB a replacement for GDB here. LLDB can connect to the
+current `r0db` GDB remote stub:
+
+```lldb
+(lldb) target create --arch riscv32 code
+(lldb) gdb-remote 127.0.0.1:9000
 ```
 
-Refresh the information.
+but in local testing with Apple LLDB `2100.0.17.108`, it only reached a stopped
+thread and did not provide usable register/frame inspection. For example,
+`register read pc` failed after connection. Use `riscv64-elf-gdb` for normal
+debugging; treat LLDB as experimental unless you are specifically improving the
+stub's LLDB remote-protocol compatibility.
+
+## Linux VM fallback
+
+A Linux VM is still useful if:
+
+- Homebrew's GDB package is not available on your macOS version.
+- You need Ubuntu's `gdb-multiarch` specifically.
+- You want to keep host debug tooling isolated from macOS.
+
+The old QEMU route still works. Create a disk image:
+
 ```console
-ubuntu@target:~$ sudo mount -a
-ubuntu@target:~$ sudo systemctl daemon-reload 
+$ qemu-img create -f qcow2 gdb.img 10G
 ```
 
-Then, in GDB, we tell GDB that the source files can be found at /wherever
+Download a current Ubuntu Server ISO from https://ubuntu.com/download/server,
+then boot and install it:
+
+```console
+$ qemu-system-x86_64 \
+    -m 4096 \
+    -drive file=gdb.img \
+    -net user,hostfwd=tcp::10022-:22 \
+    -net nic \
+    -cdrom ./ubuntu-<version>-live-server-amd64.iso
+```
+
+After installation, boot the VM without the ISO:
+
+```console
+$ qemu-system-x86_64 \
+    -m 4096 \
+    -drive file=gdb.img \
+    -net user,hostfwd=tcp::10022-:22 \
+    -net nic
+```
+
+Inside the VM:
+
+```console
+$ sudo apt update
+$ sudo apt install gdb-multiarch
+```
+
+Because QEMU user networking exposes the macOS host at `10.0.2.2`, connect from
+GDB inside the VM with:
+
 ```gdb
-(gdb) set substitute-path / /wherever
+(gdb) set architecture riscv:rv32
+(gdb) file code
+(gdb) target remote 10.0.2.2:9000
 ```
 
-Then, `layout split` should work if the program runs into the part where the source code is available.
-The very beginning of an RISC Zero guest program would not have the source because the beginning is some
-assembly. But, starting from the entry function, source codes can be found.
+## Reading source files from a VM
+
+If the guest ELF contains debug information, GDB can show source files with
+`layout split`, but the VM needs access to those paths. One simple QEMU option
+is a 9p mount of the host filesystem:
+
+```console
+$ qemu-system-x86_64 \
+    -m 4096 \
+    -drive file=gdb.img \
+    -net user,hostfwd=tcp::10022-:22 \
+    -net nic \
+    --virtfs local,path=/,security_model=none,mount_tag=hostshare
+```
+
+Inside the VM:
+
+```console
+$ sudo mkdir /host
+$ sudo chmod 0777 /host
+```
+
+Add this line to `/etc/fstab`:
+
+```fstab
+hostshare   /host    9p      trans=virtio,version=9p2000.L   0 0
+```
+
+Then mount it:
+
+```console
+$ sudo mount -a
+$ sudo systemctl daemon-reload
+```
+
+In GDB, map host paths to the mounted tree:
+
+```gdb
+(gdb) set substitute-path / /host
+```
+
+The very beginning of a RISC Zero guest may still be assembly without source
+locations, but source should appear once execution reaches code compiled with
+debug information.

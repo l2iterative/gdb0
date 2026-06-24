@@ -1,4 +1,5 @@
 use crate::debug::debugger::Debugger;
+use crate::vm::VmContext;
 use gdbstub::arch::Arch;
 use gdbstub::target::ext::breakpoints::{
     Breakpoints, HwWatchpoint, HwWatchpointOps, SwBreakpoint, SwBreakpointOps, WatchKind,
@@ -40,14 +41,10 @@ impl HwWatchpoint for Debugger {
         len: <Self::Arch as Arch>::Usize,
         kind: WatchKind,
     ) -> TargetResult<bool, Self> {
-        let sim_ref = self.simulator.borrow_mut();
-        let hw_wp_ref = &mut sim_ref.mem.borrow_mut().hw_watchpoints;
-        if hw_wp_ref.contains(&(addr, len, kind)) {
-            Ok(false)
-        } else {
-            hw_wp_ref.push((addr, len, kind));
-            Ok(true)
-        }
+        Ok(self
+            .simulator
+            .borrow_mut()
+            .add_hw_watchpoint(addr, len, kind))
     }
 
     fn remove_hw_watchpoint(
@@ -56,15 +53,9 @@ impl HwWatchpoint for Debugger {
         len: <Self::Arch as Arch>::Usize,
         kind: WatchKind,
     ) -> TargetResult<bool, Self> {
-        let sim_ref = self.simulator.borrow_mut();
-        let hw_wp_ref = &mut sim_ref.mem.borrow_mut().hw_watchpoints;
-
-        let idx = hw_wp_ref.iter().position(|x| *x == (addr, len, kind));
-        if idx.is_none() {
-            Ok(false)
-        } else {
-            hw_wp_ref.remove(idx.unwrap());
-            Ok(true)
-        }
+        Ok(self
+            .simulator
+            .borrow_mut()
+            .remove_hw_watchpoint(addr, len, kind))
     }
 }

@@ -1,5 +1,5 @@
 use crate::debug::debugger::Debugger;
-use crate::vm::memory::{GUEST_MAX_MEM, GUEST_MIN_MEM};
+use crate::vm::reg_abi;
 use gdbstub::arch::Arch;
 use gdbstub::target::ext::base::single_register_access::{
     SingleRegisterAccess, SingleRegisterAccessOps,
@@ -14,8 +14,11 @@ impl SingleThreadBase for Debugger {
         &mut self,
         regs: &mut <Self::Arch as Arch>::Registers,
     ) -> TargetResult<(), Self> {
-        regs.x = self.simulator.borrow().hart_state.registers;
-        regs.pc = self.simulator.borrow().hart_state.pc;
+        let sim = self.simulator.borrow();
+        for idx in 0..reg_abi::REG_MAX {
+            regs.x[idx] = sim.load_register(idx).ok_or(TargetError::NonFatal)?;
+        }
+        regs.pc = sim.get_pc();
         Ok(())
     }
 
@@ -23,8 +26,13 @@ impl SingleThreadBase for Debugger {
         &mut self,
         regs: &<Self::Arch as Arch>::Registers,
     ) -> TargetResult<(), Self> {
-        self.simulator.borrow_mut().hart_state.registers = regs.x;
-        self.simulator.borrow_mut().hart_state.pc = regs.pc;
+        let mut sim = self.simulator.borrow_mut();
+        for (idx, word) in regs.x.iter().copied().enumerate() {
+            if !sim.store_register(idx, word) {
+                return Err(TargetError::NonFatal);
+            }
+        }
+        sim.set_pc(regs.pc);
         Ok(())
     }
 
@@ -37,23 +45,23 @@ impl SingleThreadBase for Debugger {
         start_addr: <Self::Arch as Arch>::Usize,
         data: &mut [u8],
     ) -> TargetResult<usize, Self> {
-        if !(GUEST_MIN_MEM..GUEST_MAX_MEM).contains(&(start_addr as usize)) {
-            return Err(TargetError::NonFatal);
+        let mut sim = self.simulator.borrow_mut();
+        let mut read = 0;
+        for (offset, val) in data.iter_mut().enumerate() {
+            let Some(addr) = start_addr.checked_add(offset as u32) else {
+                break;
+            };
+            let Some(byte) = sim.read_debug_mem(addr, MemAccessSize::Byte) else {
+                if read == 0 {
+                    return Err(TargetError::NonFatal);
+                }
+                break;
+            };
+            *val = byte as u8;
+            read += 1;
         }
 
-        let end_addr = std::cmp::min(start_addr + data.len() as u32, GUEST_MAX_MEM as u32);
-
-        for (addr, val) in (start_addr..end_addr).zip(data.iter_mut()) {
-            *val = self
-                .simulator
-                .borrow_mut()
-                .mem
-                .borrow_mut()
-                .read_mem_with_privileges(addr, MemAccessSize::Byte, true)
-                .ok_or(TargetError::NonFatal)? as u8;
-        }
-
-        Ok((end_addr - start_addr) as usize)
+        Ok(read)
     }
 
     fn write_addrs(
@@ -61,14 +69,12 @@ impl SingleThreadBase for Debugger {
         start_addr: <Self::Arch as Arch>::Usize,
         data: &[u8],
     ) -> TargetResult<(), Self> {
-        for (addr, val) in (start_addr..).zip(data.iter().copied()) {
-            let res = self
-                .simulator
-                .borrow_mut()
-                .mem
-                .borrow_mut()
-                .write_mem_with_privileges(addr, MemAccessSize::Byte, val as u32, true);
-            if res == false {
+        let mut sim = self.simulator.borrow_mut();
+        for (offset, val) in data.iter().copied().enumerate() {
+            let Some(addr) = start_addr.checked_add(offset as u32) else {
+                return Err(TargetError::NonFatal);
+            };
+            if !sim.write_debug_mem(addr, MemAccessSize::Byte, val as u32) {
                 return Err(TargetError::NonFatal);
             }
         }
@@ -89,14 +95,17 @@ impl SingleRegisterAccess<()> for Debugger {
     ) -> TargetResult<usize, Self> {
         return match reg_id {
             RiscvRegId::Gpr(idx) => {
-                buf.copy_from_slice(
-                    &self.simulator.borrow_mut().hart_state.registers[idx as usize].to_le_bytes(),
-                );
+                let word = self
+                    .simulator
+                    .borrow()
+                    .load_register(idx as usize)
+                    .ok_or(TargetError::NonFatal)?;
+                buf.copy_from_slice(&word.to_le_bytes());
                 Ok(buf.len())
             }
             RiscvRegId::Fpr(_) => Err(TargetError::NonFatal),
             RiscvRegId::Pc => {
-                buf.copy_from_slice(&self.simulator.borrow_mut().hart_state.pc.to_le_bytes());
+                buf.copy_from_slice(&self.simulator.borrow().get_pc().to_le_bytes());
                 Ok(buf.len())
             }
             RiscvRegId::Csr(_) => Err(TargetError::NonFatal),
@@ -114,14 +123,21 @@ impl SingleRegisterAccess<()> for Debugger {
     ) -> TargetResult<(), Self> {
         return match reg_id {
             RiscvRegId::Gpr(idx) => {
-                self.simulator.borrow_mut().hart_state.registers[idx as usize] =
-                    u32::from_le_bytes([val[0], val[1], val[2], val[3]]);
+                let word = u32::from_le_bytes([val[0], val[1], val[2], val[3]]);
+                if !self
+                    .simulator
+                    .borrow_mut()
+                    .store_register(idx as usize, word)
+                {
+                    return Err(TargetError::NonFatal);
+                }
                 Ok(())
             }
             RiscvRegId::Fpr(_) => Err(TargetError::NonFatal),
             RiscvRegId::Pc => {
-                self.simulator.borrow_mut().hart_state.pc =
-                    u32::from_le_bytes([val[0], val[1], val[2], val[3]]);
+                self.simulator
+                    .borrow_mut()
+                    .set_pc(u32::from_le_bytes([val[0], val[1], val[2], val[3]]));
                 Ok(())
             }
             RiscvRegId::Csr(_) => Err(TargetError::NonFatal),

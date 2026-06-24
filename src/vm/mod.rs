@@ -1,8 +1,10 @@
 use gdbstub::target::ext::breakpoints::WatchKind;
+use rrs_lib::MemAccessSize;
 
 mod bibc;
 pub mod loader;
 pub mod memory;
+pub mod native;
 pub mod session_cycle;
 pub mod simulator;
 mod syscall;
@@ -42,7 +44,13 @@ pub mod reg_abi {
     pub const REG_T4: usize = 29; // temporary
     pub const REG_T5: usize = 30; // temporary
     pub const REG_T6: usize = 31; // temporary
+    pub const REG_MAX: usize = 32; // maximum number of registers
 }
+
+pub const WORD_SIZE: u32 = 4;
+pub const REG_BANK_BYTES: u32 = reg_abi::REG_MAX as u32 * WORD_SIZE;
+pub const MACHINE_REGS_ADDR: u32 = 0xffff_0000;
+pub const USER_REGS_ADDR: u32 = 0xffff_0080;
 
 pub mod ecall {
     pub const HALT: u32 = 0;
@@ -124,4 +132,23 @@ pub enum ExitCode {
 
     /// HwWatchPoint
     HwWatchPoint((WatchKind, u32)),
+}
+
+pub trait VmContext {
+    fn get_pc(&self) -> u32;
+    fn set_pc(&mut self, pc: u32);
+    fn get_machine_mode(&self) -> u32;
+    fn set_machine_mode(&mut self, mode: u32);
+
+    fn load_register(&self, idx: usize) -> Option<u32>;
+    fn store_register(&mut self, idx: usize, word: u32) -> bool;
+
+    fn read_debug_mem(&mut self, addr: u32, size: MemAccessSize) -> Option<u32>;
+    fn write_debug_mem(&mut self, addr: u32, size: MemAccessSize, word: u32) -> bool;
+
+    fn add_hw_watchpoint(&mut self, addr: u32, len: u32, kind: WatchKind) -> bool;
+    fn remove_hw_watchpoint(&mut self, addr: u32, len: u32, kind: WatchKind) -> bool;
+
+    fn step(&mut self) -> anyhow::Result<Option<ExitCode>>;
+    fn get_cycle_count(&self) -> u64;
 }

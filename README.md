@@ -3,32 +3,105 @@
 <img src="title.png" align="right" alt="a man walking on a map" width="300"/>
 
 This repository implements two things:
+
 - a virtual machine for RISC Zero guest programs that runs RISC-V instructions and mimics RISC Zero's syscalls
 - a debugger that implements an interface to GDB
+- an optional bridge to RISC Zero's current native executor for compatibility checks
 
 The debugger supports a large number of features that GDB needs. It allows GDB to read the ELF file, which is 
-helpful if the symbol tables are present, set software breakpoints, set hardware watchpoints, single-step, 
-and access memory and registers. At the same time, one can also sees how many cycles are used, how many pages 
+helpful if the symbol tables are present, set software breakpoints, set hardware watchpoints, single-step,
+and access memory and registers. At the same time, one can also see how many cycles are used, how many pages
 are loaded or unloaded.
 
 We have not yet implemented reverse single-step and continue, which would allow 
-GDB to go back in time but add some complexity due to the need to reverting an instruction. 
+GDB to go back in time but add some complexity due to the need to revert an instruction.
+
+## Current RISC Zero compatibility status
+
+This project was originally written for a much older RISC Zero release. The
+standalone VM now has a compatibility layer for RISC Zero `5.0.0-rc.1`
+syscall/register ABI changes, including current software syscall IDs, current
+host ecalls, the current `MAX_IO_BYTES` limit, modern register windows, and the
+current SHA2/Poseidon2/BigInt2 paths.
+
+There is also a native-executor bridge:
+
+```console
+$ cargo run -- --native-smoke
+$ cargo run -- --native-gdb
+```
+
+`--native-smoke` wraps a raw user ELF with RISC Zero's current v1compat kernel
+and constructs `risc0_zkvm::ExecutorImpl`. This works for current RISC Zero
+ELFs; for example, the packaged `risc0-zkvm-5.0.0-rc.1/examples/loop.bin`
+halts successfully. The historical checked-in `code` ELF is old enough that it
+enters the current native executor but fails in the current v1compat kernel with
+`Illegal trap in machine mode`, so the standalone compatibility VM is still the
+useful path for that artifact.
+
+The focused syscall drift check is:
+
+```console
+$ bash scripts/verify-syscalls.sh
+```
+
+It compares local syscall numbers, `SYS_*` names, ecall constants, host ecall
+constants, fd constants, and related limits directly against the current RISC
+Zero crates.
 
 ## Find a GDB implementation that works for RISC-V
 
-If you are using macOS with ARM chips, please refer to [gdb_macOS_arm.md](gdb_macOS_arm.md).
+You need a GDB that understands 32-bit RISC-V ELF files and the RISC-V register
+set. On Linux, `gdb-multiarch` is usually the easiest option.
 
-Otherwise, chances are that GDB would work, but just requiring a good version of GDB that 
-supports 32-bit RISC-V. An out-of-the-box GDB likely does not support 32-bit RISC-V, but just a few other 
-very common architectures. 
+On macOS with Apple Silicon, the situation has improved since this README was
+first written: Homebrew now provides a bottled
+[`riscv64-elf-gdb`](https://formulae.brew.sh/formula/riscv64-elf-gdb)
+package for Apple Silicon. See [gdb_macOS_arm.md](gdb_macOS_arm.md) for the
+current macOS notes.
 
-There are two ways to obtain a collaborative GDB.
+Common options:
 
-- On Ubuntu systems, one can install `gdb-multiarch`, which supports a large number of target platforms including
-  32-bit RISC-V. This would require a very recent version of Ubuntu, as older `gdb-multiarch` may fail to demangle
-  the function names properly.
-- Compile GDB from the source (https://www.sourceware.org/gdb/) and do `./configure --target=riscv32` to obtain a
-  dedicated GDB that only has 32-bit RISC-V.
+- On macOS:
+  ```console
+  $ brew install riscv64-elf-gdb
+  ```
+- On Ubuntu:
+  ```console
+  $ sudo apt install gdb-multiarch
+  ```
+- From source, build GDB with RISC-V target support if you need a pinned or
+  custom build.
+
+With `riscv64-elf-gdb`, tell GDB to use the 32-bit RISC-V architecture before
+connecting:
+
+```gdb
+(gdb) set architecture riscv:rv32
+(gdb) file code
+(gdb) target remote 127.0.0.1:9000
+```
+
+The GDB manual's RISC-V remote target description expects the integer registers
+`x0` through `x31` plus `pc`, with ABI aliases such as `ra`, `sp`, and `a0`
+allowed. See the
+[GDB RISC-V target-feature documentation](https://sourceware.org/gdb/current/onlinedocs/gdb.html/RISC_002dV-Features.html)
+for the upstream register model.
+
+### What about LLDB?
+
+LLDB has improved: on current Apple LLDB, `target create --arch riscv32 code`
+recognizes the checked-in ELF as `riscv32`. LLDB also speaks the GDB remote
+protocol via `gdb-remote`; upstream LLDB documents its GDB-remote behavior, and
+the [LLVM 20 release notes](https://releases.llvm.org/20.1.0/docs/ReleaseNotes.html)
+include additional RISC-V LLDB improvements.
+
+However, LLDB is not yet a drop-in replacement for this debugger. A local test
+with Apple LLDB `2100.0.17.108` can connect to this repository's GDB stub and
+see a stopped thread, but it does not provide useful register/frame inspection;
+`register read pc` fails after connecting. For now, use GDB for actual
+debugging. Treat LLDB as experimental unless you are also working on LLDB
+remote-protocol compatibility for this stub.
 
 ## New RISC-Zero-specific functions for GDB
 
@@ -160,13 +233,13 @@ Lastly, don't forget how to close GDB.
 
 ## Examples
 
-The present code uses the `code` challenge file from https://github.com/weikengchen/zkctf-r0. 
+The present code uses the `code` challenge file from https://github.com/weikengchen/zkctf-r0.
 Below is a screenshot of the GDB that executes over it.
 
 ![GDB example](./gdb.png)
 
 The unsolved challenge would trigger a memory error because it tries to write to memory location
-at 0x1. This is not pemissible for two reasons: (1) not aligned and (2) out of the guest memory.
+at 0x1. This is not permissible for two reasons: (1) not aligned and (2) out of the guest memory.
 
 ```
 Error message: execution encounters an exception at 0x00200f00. AlignmentFault(1)
@@ -182,4 +255,3 @@ Most of the code for the virtual machine comes from RISC Zero (https://www.githu
 Most of the code for the debugger comes from gdbstub (https://github.com/daniel5151/gdbstub).
 
 One can refer to [LICENSE](./LICENSE) for the resultant situations about licensing.
-

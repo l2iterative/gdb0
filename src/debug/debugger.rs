@@ -100,10 +100,8 @@ impl run_blocking::BlockingEventLoop for Debugger {
 
                 let exit_code = res.unwrap();
                 return if exit_code.is_none() {
-                    if target
-                        .breakpoints
-                        .contains(&target.simulator.borrow_mut().hart_state.pc)
-                    {
+                    let pc = target.simulator.borrow().get_pc();
+                    if target.breakpoints.contains(&pc) {
                         Ok(Event::TargetStopped(SingleThreadStopReason::SwBreak(())))
                     } else {
                         Ok(Event::TargetStopped(SingleThreadStopReason::DoneStep))
@@ -174,10 +172,8 @@ impl run_blocking::BlockingEventLoop for Debugger {
                             }
                         };
                     } else {
-                        if target
-                            .breakpoints
-                            .contains(&target.simulator.borrow_mut().hart_state.pc)
-                        {
+                        let pc = target.simulator.borrow().get_pc();
+                        if target.breakpoints.contains(&pc) {
                             return Ok(Event::TargetStopped(SingleThreadStopReason::SwBreak(())));
                         }
                     }
@@ -230,14 +226,12 @@ impl run_blocking::BlockingEventLoop for Debugger {
                         };
                     }
 
-                    if !(start..end).contains(&target.simulator.borrow_mut().hart_state.pc) {
+                    let pc = target.simulator.borrow().get_pc();
+                    if !(start..end).contains(&pc) {
                         return Ok(Event::TargetStopped(SingleThreadStopReason::DoneStep));
                     }
 
-                    if target
-                        .breakpoints
-                        .contains(&target.simulator.borrow_mut().hart_state.pc)
-                    {
+                    if target.breakpoints.contains(&pc) {
                         return Ok(Event::TargetStopped(SingleThreadStopReason::SwBreak(())));
                     }
                 }

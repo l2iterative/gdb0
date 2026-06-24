@@ -22,4 +22,9 @@ malachite = { version = "0.4.22", default-features = false, features = ["natural
 num-derive = "0.4.2"
 num-traits = "0.2.19"
 risc0-core = { version = "5.0.0-rc.1", default-features = false }
+risc0-binfmt = "5.0.0-rc.1"
+risc0-circuit-rv32im = { version = "5.0.0-rc.1", default-features = false, features = ["execute"] }
+risc0-zkos-v1compat = "5.0.0-rc.1"
+risc0-zkvm-platform = { version = "5.0.0-rc.1", default-features = false }
+risc0-zkvm = { version = "5.0.0-rc.1", default-features = false, features = ["prove"] }
 risc0-zkp = { version = "5.0.0-rc.1", default-features = false }
